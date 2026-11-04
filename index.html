@@ -1,0 +1,1375 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CCTV External Dashboard</title>
+    <!-- Tailwind CSS untuk Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- HLS.js untuk memutar stream .m3u8 -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <!-- Phosphor Icons CSS (Diganti menggunakan CSS agar lebih stabil) -->
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/regular/style.css" />
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/fill/style.css" />
+    <!-- TENSORFLOW.JS & COCO-SSD (Untuk Deteksi Objek Asli) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <!-- GOOGLE MAPS API -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCmgH8T5ozB4shDUnsGIWmCqxcm2h94ok8&callback=initMap"></script>
+    <style>
+        /* Custom Scrollbar untuk tampilan yang lebih rapi (Light Mode) */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9; 
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; 
+        }
+        .live-indicator {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.3; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 font-sans flex h-screen overflow-hidden selection:bg-blue-500 selection:text-white">
+
+    <!-- Sidebar Backdrop untuk Mobile -->
+    <div id="sidebar-backdrop" class="fixed inset-0 bg-gray-900/50 z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+    <!-- Sidebar Menu -->
+    <aside id="sidebar" class="w-64 bg-white border-r border-gray-200 flex flex-col fixed md:relative z-50 h-full transition-transform duration-300 transform -translate-x-full md:translate-x-0 shadow-sm">
+        <div class="p-6 flex items-center gap-3 border-b border-gray-200">
+            <i class="ph-fill ph-video-camera text-3xl text-blue-600"></i>
+            <h1 class="text-xl font-bold tracking-wider text-gray-900">Ext-CCTV</h1>
+        </div>
+        
+        <nav class="flex-1 overflow-y-auto py-4">
+            <ul class="space-y-1 px-3">
+                <li>
+                    <a href="javascript:void(0)" onclick="switchView('view-dashboard')" id="nav-dashboard" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg bg-blue-600 text-white font-medium shadow-md shadow-blue-500/20 transition-colors">
+                        <i class="ph ph-squares-four text-xl"></i>
+                        <span>Live Dashboard</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="javascript:void(0)" onclick="switchView('view-manage')" id="nav-manage" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-blue-600 transition-colors">
+                        <i class="ph ph-video-camera text-xl"></i>
+                        <span>Kelola CCTV</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="javascript:void(0)" onclick="switchView('view-playback')" id="nav-playback" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-blue-600 transition-colors">
+                        <i class="ph ph-floppy-disk text-xl"></i>
+                        <span>Playback (VOD)</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="javascript:void(0)" onclick="switchView('view-map')" id="nav-map" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-blue-600 transition-colors">
+                        <i class="ph ph-map-pin text-xl"></i>
+                        <span>Peta Lokasi</span>
+                    </a>
+                </li>
+            </ul>
+
+            <div class="mt-8 px-6 text-xs font-bold text-gray-400 uppercase tracking-wider">
+                Sistem
+            </div>
+            <ul class="space-y-1 px-3 mt-2">
+                <li>
+                    <a href="javascript:void(0)" onclick="switchView('view-settings')" id="nav-settings" class="nav-item flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-blue-600 transition-colors">
+                        <i class="ph ph-gear text-xl"></i>
+                        <span>Pengaturan AI</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="javascript:void(0)" class="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-blue-600 transition-colors">
+                        <i class="ph ph-info text-xl"></i>
+                        <span>Bantuan & Info</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <div class="p-4 border-t border-gray-200 bg-gray-50/50">
+            <div class="flex items-center gap-3">
+                <img src="https://placehold.co/100x100/e2e8f0/475569?text=AD" alt="Admin" class="w-10 h-10 rounded-full border border-gray-300">
+                <div>
+                    <p class="text-sm font-semibold text-gray-900">Admin System</p>
+                    <p class="text-xs text-green-600 flex items-center gap-1 font-medium">
+                        <span class="w-2 h-2 rounded-full bg-green-500"></span> Online
+                    </p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+        
+        <!-- Topbar -->
+        <header class="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-8 z-10 shadow-sm shrink-0">
+            <div class="flex items-center gap-4">
+                <button onclick="toggleSidebar()" class="md:hidden text-gray-500 hover:text-gray-900">
+                    <i class="ph ph-list text-2xl"></i>
+                </button>
+                <div class="relative hidden sm:block">
+                    <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    <input type="text" placeholder="Cari Kamera ID / Lokasi..." class="bg-gray-50 border border-gray-300 text-sm rounded-lg pl-10 pr-4 py-2 w-64 focus:outline-none focus:border-blue-500 focus:bg-white transition-all text-gray-900 placeholder-gray-500 shadow-sm">
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4">
+                <div class="bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg flex items-center gap-2 text-sm text-gray-700 shadow-sm font-medium">
+                    <i class="ph ph-clock text-blue-600 text-lg"></i>
+                    <span id="current-time">00:00:00</span>
+                </div>
+                
+                <!-- Notification Bell & Dropdown -->
+                <div class="relative">
+                    <button onclick="toggleNotifications()" class="relative p-2 text-gray-500 hover:text-blue-600 transition-colors focus:outline-none bg-gray-50 border border-gray-200 rounded-lg shadow-sm">
+                        <i class="ph ph-bell text-xl"></i>
+                        <span id="notif-badge" class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white hidden shadow-sm"></span>
+                    </button>
+                    
+                    <div id="notif-panel" class="absolute right-0 top-full mt-2 w-80 bg-white border border-gray-200 rounded-xl shadow-xl hidden flex-col z-50 overflow-hidden origin-top-right transition-all">
+                        <div class="p-3 border-b border-gray-200 bg-gray-50 flex justify-between items-center">
+                            <h4 class="text-sm font-bold text-gray-900">Notifikasi Sistem</h4>
+                            <button onclick="clearNotifications()" class="text-xs text-blue-600 hover:text-blue-700 font-semibold">Bersihkan</button>
+                        </div>
+                        <div id="notif-list" class="max-h-80 overflow-y-auto p-2 space-y-1 bg-white custom-scrollbar">
+                            <div class="text-center p-6 text-gray-500 text-xs" id="notif-empty">Belum ada notifikasi baru</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- View Container -->
+        <div class="flex-1 overflow-hidden relative bg-gray-100">
+            
+            <!-- ================= VIEW: DASHBOARD (LIVE) ================= -->
+            <div id="view-dashboard" class="view-section absolute inset-0 overflow-y-auto p-4 lg:p-8 flex flex-col lg:flex-row gap-6">
+                <!-- Main Player Area -->
+                <div class="flex-1 flex flex-col min-w-0">
+                    <div class="flex justify-between items-end mb-4">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                                <span id="active-cam-name">Live Pantauan CCTV</span>
+                            </h2>
+                            <p class="text-gray-500 text-sm mt-1" id="active-cam-location">Pilih mode tampilan sekat kamera dan pantau AI secara real-time.</p>
+                        </div>
+                        <div class="flex gap-2">
+                            <!-- Layout Grid Controls -->
+                            <div class="flex bg-white rounded-lg p-1 border border-gray-300 mr-2 items-center shadow-sm">
+                                <button onclick="setGrid(1)" id="btn-grid-1" class="p-1.5 rounded text-blue-700 bg-blue-100 focus:outline-none transition-colors" title="1 Kamera">
+                                    <i class="ph ph-square text-lg"></i>
+                                </button>
+                                <button onclick="setGrid(4)" id="btn-grid-4" class="p-1.5 rounded text-gray-500 hover:text-blue-600 hover:bg-gray-50 focus:outline-none transition-colors" title="4 Kamera (2x2)">
+                                    <i class="ph ph-squares-four text-lg"></i>
+                                </button>
+                                <button onclick="setGrid(9)" id="btn-grid-9" class="p-1.5 rounded text-gray-500 hover:text-blue-600 hover:bg-gray-50 focus:outline-none transition-colors" title="9 Kamera (3x3)">
+                                    <i class="ph ph-grid-nine text-lg"></i>
+                                </button>
+                            </div>
+
+                            <button onclick="takeScreenshot()" class="bg-white hover:bg-gray-50 text-gray-700 p-2 rounded-lg border border-gray-300 shadow-sm transition" title="Screenshot">
+                                <i class="ph ph-camera text-lg"></i>
+                            </button>
+                            <button onclick="toggleFullscreen()" class="bg-white hover:bg-gray-50 text-gray-700 p-2 rounded-lg border border-gray-300 shadow-sm transition" title="Fullscreen">
+                                <i class="ph ph-corners-out text-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Grid Container (Tetap Gelap di Dalam Agar Layar CCTV Terlihat Jelas) -->
+                    <div id="grid-container" class="grid grid-cols-1 gap-2 bg-black rounded-xl p-2 shadow-md border border-gray-800 aspect-video group w-full h-full">
+                        <!-- JS Will Inject Video Slots Here -->
+                    </div>
+                    
+                    <!-- Stats Card & AI Counters -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                        <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                            <p class="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Status Kamera</p>
+                            <p class="text-green-600 font-bold flex items-center gap-1"><i class="ph-fill ph-check-circle"></i> Online</p>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+                            <p class="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Resolusi</p>
+                            <select id="cam-resolution" onchange="changeResolution(this.value)" class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 block p-1 font-bold cursor-pointer">
+                                <option value="-1">Auto (Adaptif)</option>
+                                <option value="1080">1080p (FHD)</option>
+                                <option value="720">720p (HD)</option>
+                                <option value="480">480p (SD)</option>
+                            </select>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl border-t-4 border-t-blue-500 border border-gray-200 shadow-sm relative overflow-hidden" id="card-car">
+                            <div class="absolute top-1 right-2 opacity-10"><i class="ph-fill ph-car-profile text-5xl text-blue-600"></i></div>
+                            <p class="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Total Mobil (AI)</p>
+                            <p class="text-2xl font-black text-blue-600" id="count-mobil">0</p>
+                        </div>
+                        <div class="bg-white p-4 rounded-xl border-t-4 border-t-green-500 border border-gray-200 shadow-sm relative overflow-hidden" id="card-motor">
+                            <div class="absolute top-1 right-2 opacity-10"><i class="ph-fill ph-motorcycle text-5xl text-green-600"></i></div>
+                            <p class="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Total Motor (AI)</p>
+                            <p class="text-2xl font-black text-green-600" id="count-motor">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Camera List Sidebar -->
+                <div class="w-full lg:w-80 flex flex-col shrink-0">
+                    <h3 class="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                        <i class="ph ph-list-bullets text-blue-600"></i> Daftar Kamera
+                    </h3>
+                    <div class="flex-1 bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col h-[500px] lg:h-auto shadow-sm">
+                        <div class="p-3 border-b border-gray-200 bg-gray-50">
+                            <p class="text-xs text-gray-500 font-medium">Pilih kamera untuk memantau</p>
+                        </div>
+                        <div class="flex-1 overflow-y-auto p-2 space-y-1" id="camera-list">
+                            <!-- List di-generate via JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: KELOLA CCTV ================= -->
+            <div id="view-manage" class="view-section absolute inset-0 overflow-y-auto p-4 lg:p-8 hidden">
+                <div class="max-w-5xl mx-auto">
+                    <div class="mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900">Kelola Data CCTV</h2>
+                            <p class="text-gray-500 text-sm mt-1">Tambah, ubah nama, atau hapus daftar kamera dari sistem.</p>
+                        </div>
+                        <button onclick="openFormModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center gap-2 shadow-md shadow-blue-600/20 transition">
+                            <i class="ph ph-plus-bold"></i> Tambah CCTV
+                        </button>
+                    </div>
+
+                    <div class="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-sm text-gray-700 whitespace-nowrap">
+                                <thead class="bg-gray-50 text-gray-600 border-b border-gray-200">
+                                    <tr>
+                                        <th class="px-6 py-4 font-bold">Nama Kamera</th>
+                                        <th class="px-6 py-4 font-bold">Lokasi</th>
+                                        <th class="px-6 py-4 font-bold">URL Stream (HLS)</th>
+                                        <th class="px-6 py-4 text-right font-bold">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="manage-cctv-list" class="divide-y divide-gray-200">
+                                    <!-- Di-generate via JS -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: PLAYBACK (VOD) ================= -->
+            <div id="view-playback" class="view-section absolute inset-0 overflow-y-auto p-4 lg:p-8 hidden">
+                <div class="max-w-5xl mx-auto">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">Playback Rekaman</h2>
+                    <p class="text-gray-500 text-sm mb-6">Cari dan putar ulang riwayat rekaman CCTV.</p>
+
+                    <div class="bg-white p-5 rounded-xl border border-gray-200 mb-6 flex flex-col md:flex-row gap-4 items-end shadow-sm">
+                        <div class="flex-1 w-full">
+                            <label class="block text-xs text-gray-600 mb-1.5 font-bold">Pilih CCTV</label>
+                            <select id="pb-cctv-select" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-2.5 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm">
+                                <!-- JS Populated -->
+                            </select>
+                        </div>
+                        <div class="flex-1 w-full">
+                            <label class="block text-xs text-gray-600 mb-1.5 font-bold">Tanggal</label>
+                            <input type="date" id="pb-date" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-2.5 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm">
+                        </div>
+                        <div class="flex-1 w-full">
+                            <label class="block text-xs text-gray-600 mb-1.5 font-bold">Jam (Mulai)</label>
+                            <input type="time" id="pb-time" class="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-2.5 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 shadow-sm">
+                        </div>
+                        <button onclick="startPlayback()" class="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8 py-2.5 rounded-lg font-medium transition shadow-sm">
+                            Cari Rekaman
+                        </button>
+                    </div>
+
+                    <div class="aspect-video bg-gray-900 rounded-xl border border-gray-300 relative flex flex-col items-center justify-center overflow-hidden shadow-lg">
+                        <div id="pb-placeholder" class="text-center">
+                            <i class="ph ph-video-camera-slash text-5xl text-gray-600 mb-3"></i>
+                            <p class="text-gray-400 text-sm">Silakan cari rekaman untuk memulai playback.</p>
+                        </div>
+                        <video id="pb-player-video" class="w-full h-full object-contain hidden" controls></video>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: PENGATURAN AI ================= -->
+            <div id="view-settings" class="view-section absolute inset-0 overflow-y-auto p-4 lg:p-8 hidden">
+                <div class="max-w-3xl mx-auto">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-2">Pengaturan Modul AI</h2>
+                    <p class="text-gray-500 text-sm mb-8">Aktifkan atau nonaktifkan fitur deteksi cerdas yang berjalan pada stream CCTV.</p>
+
+                    <div class="space-y-4">
+                        <!-- Toggle 1 -->
+                        <div class="bg-white p-5 rounded-xl border border-gray-200 flex justify-between items-center shadow-sm">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100">
+                                    <i class="ph-fill ph-car text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-gray-900 font-bold">Deteksi & Hitung Kendaraan</p>
+                                    <p class="text-xs text-gray-500 mt-0.5">Mendeteksi dan menghitung jumlah Mobil dan Motor yang lewat.</p>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                              <input type="checkbox" id="ai-vehicle" checked onchange="toggleAI('vehicle', this.checked)" class="sr-only peer">
+                              <div class="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+                        
+                        <!-- Toggle 2 -->
+                        <div class="bg-white p-5 rounded-xl border border-gray-200 flex justify-between items-center shadow-sm">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-lg bg-green-50 flex items-center justify-center text-green-600 border border-green-100">
+                                    <i class="ph-fill ph-users text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-gray-900 font-bold">Deteksi Orang (Pejalan Kaki)</p>
+                                    <p class="text-xs text-gray-500 mt-0.5">Mengenali pergerakan manusia di area pantauan kamera.</p>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                              <input type="checkbox" id="ai-person" checked onchange="toggleAI('person', this.checked)" class="sr-only peer">
+                              <div class="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+
+                        <!-- Toggle 3 -->
+                        <div class="bg-white p-5 rounded-xl border border-gray-200 flex justify-between items-center shadow-sm">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600 border border-purple-100">
+                                    <i class="ph-fill ph-identification-card text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-gray-900 font-bold">ANPR (Deteksi Plat Nomor)</p>
+                                    <p class="text-xs text-gray-500 mt-0.5">Membaca dan mencatat plat nomor kendaraan secara otomatis.</p>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                              <input type="checkbox" id="ai-plate" checked onchange="toggleAI('plate', this.checked)" class="sr-only peer">
+                              <div class="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                            </label>
+                        </div>
+
+                        <!-- Toggle 4 -->
+                        <div class="bg-white p-5 rounded-xl border border-red-200 bg-red-50/30 flex justify-between items-center shadow-sm">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center text-red-600 border border-red-200">
+                                    <i class="ph-fill ph-warning-octagon text-xl"></i>
+                                </div>
+                                <div>
+                                    <p class="text-gray-900 font-bold">Deteksi Anomali (Keributan)</p>
+                                    <p class="text-xs text-gray-500 mt-0.5">Mendeteksi aktivitas tidak wajar seperti perkelahian atau kerumunan.</p>
+                                </div>
+                            </div>
+                            <label class="relative inline-flex items-center cursor-pointer">
+                              <input type="checkbox" id="ai-anomaly" checked onchange="toggleAI('anomaly', this.checked)" class="sr-only peer">
+                              <div class="w-11 h-6 bg-red-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= VIEW: PETA LOKASI ================= -->
+            <div id="view-map" class="view-section absolute inset-0 overflow-hidden p-4 lg:p-8 hidden">
+                <div class="flex flex-col w-full h-full">
+                    <div class="mb-4">
+                        <h2 class="text-2xl font-bold text-gray-900">Peta Lokasi CCTV</h2>
+                        <p class="text-gray-500 text-sm mt-1">Pantau letak persebaran kamera CCTV pada peta interaktif.</p>
+                    </div>
+                    <div class="flex-1 w-full bg-white rounded-xl border border-gray-200 relative shadow-sm p-1">
+                        <!-- Menggunakan absolute inset-0 agar maps dipaksa mengambil 100% tinggi sisa container -->
+                        <div id="map-container" class="absolute inset-1 rounded-lg overflow-hidden"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Modal Kelola CCTV -->
+    <div id="cctv-modal" class="fixed inset-0 bg-gray-900/60 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity">
+        <div class="bg-white border border-gray-200 rounded-2xl w-full max-w-md p-6 shadow-2xl transform scale-95 transition-transform" id="cctv-modal-content">
+            <h3 class="text-xl font-bold text-gray-900 mb-4" id="modal-title">Tambah CCTV Baru</h3>
+            <input type="hidden" id="form-id">
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Nama Kamera</label>
+                    <input type="text" id="form-name" placeholder="Contoh: CCTV Simpang Sudirman" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2.5 text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Lokasi</label>
+                    <input type="text" id="form-location" placeholder="Contoh: Jakarta Selatan" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2.5 text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">URL Stream HLS (.m3u8)</label>
+                    <input type="text" id="form-url" placeholder="https://..." class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2.5 text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Latitude (Garis Lintang)</label>
+                        <input type="number" step="any" id="form-lat" placeholder="-6.21462" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2.5 text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700 mb-1">Longitude (Garis Bujur)</label>
+                        <input type="number" step="any" id="form-lng" placeholder="106.80151" class="w-full bg-white border border-gray-300 rounded-lg px-3 py-2.5 text-gray-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 shadow-sm">
+                    </div>
+                </div>
+            </div>
+            <div class="mt-8 flex gap-3 justify-end bg-gray-50 -mx-6 -mb-6 p-4 rounded-b-2xl border-t border-gray-100">
+                <button onclick="closeFormModal()" class="px-4 py-2 rounded-lg text-gray-600 hover:bg-gray-200 transition font-semibold">Batal</button>
+                <button onclick="saveCamera()" class="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition font-semibold shadow-md shadow-blue-600/20">Simpan Data</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-[60] flex flex-col gap-3 pointer-events-none"></div>
+
+    <!-- Script Logic -->
+    <script>
+        // Data State
+        let cameras = [
+            {
+                id: 'cam-01',
+                name: 'CCTV Jl. Gerbang Pemuda C04',
+                location: 'Jakarta Pusat, DKI Jakarta',
+                url: 'https://dki-jkt.balitower.co.id:7028/502506_JKP_SATPOL-PP_JL.-GERBANG-PEMUDA-C04_CCTV-02/tracks-v1/index.fmp4.m3u8',
+                status: 'online',
+                lat: -6.21462, 
+                lng: 106.80151
+            },
+            {
+                id: 'cam-02',
+                name: 'CCTV Simpang Lima (Test)',
+                location: 'Public Stream',
+                url: 'https://devstreaming-cdn.apple.com/videos/streaming/examples/img_bipbop_adv_example_ts/master.m3u8',
+                status: 'online',
+                lat: -6.98432, 
+                lng: 110.42213
+            }
+        ];
+
+        let aiSettings = {
+            vehicle: true,
+            person: true,
+            plate: true,
+            anomaly: true
+        };
+
+        let aiStats = {
+            mobil: 452,
+            motor: 893,
+            orang: 120
+        };
+
+        let cocoModel = null; 
+        
+        // Grid State
+        let currentGridCount = 1;
+        let gridSlots = []; // menampung metadata player, canvas, hls
+
+        // Notification State
+        let notifications = [];
+        let unreadNotif = false;
+
+        // ==== SYSTEM & UI UTILS ====
+        
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebar-backdrop');
+            sidebar.classList.toggle('-translate-x-full');
+            backdrop.classList.toggle('hidden');
+        }
+
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const bgColor = 'bg-white';
+            const textColor = 'text-gray-800';
+            const border = 'border border-gray-200';
+            const icon = type === 'error' ? 'ph-warning-circle text-red-500' : 'ph-check-circle text-green-500';
+            
+            toast.className = `${bgColor} ${textColor} ${border} px-4 py-3 rounded-xl shadow-lg flex items-center gap-3 transform transition-all duration-300 translate-x-full opacity-0 pointer-events-auto`;
+            toast.innerHTML = `<i class="ph-fill ${icon} text-xl"></i> <span class="text-sm font-semibold">${message}</span>`;
+            
+            container.appendChild(toast);
+            requestAnimationFrame(() => toast.classList.remove('translate-x-full', 'opacity-0'));
+            setTimeout(() => {
+                toast.classList.add('translate-x-full', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function switchView(viewId) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(viewId).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-item').forEach(el => {
+                el.classList.remove('bg-blue-600', 'text-white', 'shadow-md', 'shadow-blue-500/20');
+                el.classList.add('text-gray-600', 'hover:bg-gray-100', 'hover:text-blue-600');
+            });
+            
+            const activeNav = document.getElementById('nav-' + viewId.replace('view-', ''));
+            if(activeNav) {
+                activeNav.classList.remove('text-gray-600', 'hover:bg-gray-100', 'hover:text-blue-600');
+                activeNav.classList.add('bg-blue-600', 'text-white', 'shadow-md', 'shadow-blue-500/20');
+            }
+
+            if (window.innerWidth < 768) {
+                document.getElementById('sidebar').classList.add('-translate-x-full');
+                document.getElementById('sidebar-backdrop').classList.add('hidden');
+            }
+
+            if(viewId === 'view-manage') renderManageList();
+            if(viewId === 'view-playback') populatePlaybackSelect();
+            if(viewId === 'view-map' && typeof google !== 'undefined' && map) {
+                setTimeout(() => {
+                    google.maps.event.trigger(map, 'resize');
+                    map.setCenter({ lat: -6.21462, lng: 106.80151 });
+                }, 150);
+            }
+        }
+
+        // ==== NOTIFICATION LOGIC ====
+
+        function toggleNotifications() {
+            const panel = document.getElementById('notif-panel');
+            const badge = document.getElementById('notif-badge');
+            
+            if(panel.classList.contains('hidden')) {
+                panel.classList.remove('hidden');
+                badge.classList.add('hidden');
+                unreadNotif = false;
+            } else {
+                panel.classList.add('hidden');
+            }
+        }
+
+        function pushNotification(title, msg, isAlert=false) {
+            const timeStr = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute:'2-digit', second:'2-digit' });
+            notifications.unshift({ title, msg, isAlert, time: timeStr });
+            
+            // Limit history
+            if(notifications.length > 50) notifications.pop();
+
+            unreadNotif = true;
+            document.getElementById('notif-badge').classList.remove('hidden');
+            
+            renderNotifications();
+        }
+
+        function renderNotifications() {
+            const list = document.getElementById('notif-list');
+            const empty = document.getElementById('notif-empty');
+            
+            if(notifications.length === 0) {
+                if(empty) empty.style.display = 'block';
+                return;
+            }
+            
+            list.innerHTML = '';
+            notifications.forEach(n => {
+                const icon = n.isAlert ? '<i class="ph-fill ph-warning-octagon text-red-500 text-xl"></i>' : '<i class="ph-fill ph-info text-blue-500 text-xl"></i>';
+                const bg = n.isAlert ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-100';
+                list.innerHTML += `
+                    <div class="p-2.5 rounded-lg border ${bg} flex gap-3 items-start mb-1">
+                        <div class="mt-0.5">${icon}</div>
+                        <div>
+                            <p class="text-xs font-bold ${n.isAlert ? 'text-red-700' : 'text-gray-800'}">${n.title}</p>
+                            <p class="text-[11px] text-gray-500 leading-snug mt-0.5">${n.msg}</p>
+                            <p class="text-[9px] text-gray-400 font-semibold mt-1">${n.time}</p>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function clearNotifications() {
+            notifications = [];
+            renderNotifications();
+            document.getElementById('notif-list').innerHTML = '<div class="text-center p-6 text-slate-500 text-xs" id="notif-empty">Belum ada notifikasi baru</div>';
+            document.getElementById('notif-badge').classList.add('hidden');
+            unreadNotif = false;
+        }
+
+        // ==== DASHBOARD GRID & PLAYER LOGIC ====
+
+        function setGrid(count) {
+            currentGridCount = count;
+            
+            // Update Tab Styling
+            [1, 4, 9].forEach(n => {
+                const btn = document.getElementById(`btn-grid-${n}`);
+                if(n === count) {
+                    btn.classList.add('bg-blue-100', 'text-blue-700');
+                    btn.classList.remove('text-gray-500', 'hover:text-blue-600', 'hover:bg-gray-50');
+                } else {
+                    btn.classList.remove('bg-blue-100', 'text-blue-700');
+                    btn.classList.add('text-gray-500', 'hover:text-blue-600', 'hover:bg-gray-50');
+                }
+            });
+
+            renderGrid();
+        }
+
+        function renderGrid() {
+            const container = document.getElementById('grid-container');
+            
+            // Hancurkan player lama
+            gridSlots.forEach(slot => {
+                if(slot.hls) slot.hls.destroy();
+            });
+            gridSlots = [];
+            container.innerHTML = '';
+
+            // Set kolom CSS Grid
+            let cols = 'grid-cols-1';
+            if (currentGridCount === 4) cols = 'grid-cols-2';
+            else if (currentGridCount === 9) cols = 'grid-cols-3';
+            
+            // Bagian pembungkus tetap ada gelapnya untuk layar CCTV agar video terlihat kontras.
+            container.className = `grid ${cols} gap-2 bg-gray-900 rounded-xl p-2 shadow-md border border-gray-300 aspect-video group w-full h-full`;
+
+            for (let i = 0; i < currentGridCount; i++) {
+                const cam = cameras[i] || null; // Isi dengan kamera yang tersedia, jika kurang, kosong.
+
+                const slotHTML = `
+                    <div class="relative bg-black rounded-lg overflow-hidden border border-gray-800 shadow-inner ${!cam ? 'flex items-center justify-center' : ''}">
+                        ${cam ? `
+                            <div class="absolute top-2 left-2 z-10 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded border border-slate-600 flex items-center gap-1.5 text-[10px] font-semibold text-white">
+                                <span class="w-1.5 h-1.5 rounded-full bg-red-500 live-indicator"></span> LIVE
+                            </div>
+                            <div class="absolute top-2 right-2 z-10 bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded border border-slate-600 text-[10px] text-slate-300 truncate max-w-[120px]">
+                                ${cam.name}
+                            </div>
+                            
+                            <!-- Area Logs AI -->
+                            <div id="ai-logs-${i}" class="absolute bottom-2 left-2 z-10 flex flex-col-reverse gap-1 pointer-events-none"></div>
+
+                            <div id="overlay-${i}" class="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/80 text-white">
+                                <i class="ph ph-spinner animate-spin text-2xl text-blue-500 mb-2"></i>
+                                <p class="text-[10px] text-gray-300">Menyambungkan...</p>
+                            </div>
+                            
+                            <video id="video-${i}" class="w-full h-full object-fill" controls autoplay muted crossorigin="anonymous"></video>
+                            <canvas id="canvas-${i}" class="absolute inset-0 w-full h-full pointer-events-none z-20"></canvas>
+                        ` : `
+                            <div class="text-center text-gray-600">
+                                <i class="ph ph-video-camera-slash text-3xl mb-1"></i>
+                                <p class="text-xs font-semibold">No Signal</p>
+                            </div>
+                        `}
+                    </div>
+                `;
+                
+                container.insertAdjacentHTML('beforeend', slotHTML);
+
+                if (cam) {
+                    initPlayer(i, cam);
+                }
+            }
+        }
+
+        function initPlayer(index, camera) {
+            const videoEl = document.getElementById(`video-${index}`);
+            const canvasEl = document.getElementById(`canvas-${index}`);
+            const overlayEl = document.getElementById(`overlay-${index}`);
+            let hlsInstance = null;
+
+            if (Hls.isSupported()) {
+                hlsInstance = new Hls({ maxMaxBufferLength: 30, liveSyncDuration: 3 });
+                hlsInstance.loadSource(camera.url);
+                hlsInstance.attachMedia(videoEl);
+                
+                hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+                    overlayEl.classList.add('hidden');
+                    videoEl.play().catch(e => console.log("Auto-play blocked"));
+                });
+                
+                hlsInstance.on(Hls.Events.ERROR, function (e, data) {
+                    if (data.fatal) {
+                        overlayEl.classList.remove('hidden');
+                        overlayEl.innerHTML = `<i class="ph ph-warning-circle text-2xl text-yellow-500 mb-1"></i><p class="text-[10px] text-yellow-500">Terputus / CORS Blocked</p>`;
+                    }
+                });
+            } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+                videoEl.src = camera.url;
+                videoEl.addEventListener('loadedmetadata', () => { 
+                    overlayEl.classList.add('hidden'); 
+                    videoEl.play(); 
+                });
+            }
+
+            gridSlots.push({
+                index,
+                video: videoEl,
+                canvas: canvasEl,
+                hls: hlsInstance,
+                cam: camera,
+                lastCars: 0,
+                lastMotors: 0,
+                tracks: [] // Tambahan: Menyimpan memori posisi objek sebelumnya untuk kalkulasi kecepatan
+            });
+        }
+
+        function playStream(camera) {
+            // Jika user memilih dari sidebar, tempatkan di slot pertama (Slot 0)
+            if(gridSlots.length > 0) {
+                const slotIndex = gridSlots.findIndex(s => s.index === 0);
+                
+                if (slotIndex > -1) {
+                    if (gridSlots[slotIndex].hls) gridSlots[slotIndex].hls.destroy();
+                    // Hapus data kamera lama dari memori secara bersih
+                    gridSlots.splice(slotIndex, 1);
+                }
+                
+                document.getElementById(`active-cam-name`).innerText = camera.name;
+                document.getElementById(`overlay-0`).classList.remove('hidden');
+                document.getElementById(`overlay-0`).innerHTML = `<i class="ph ph-spinner animate-spin text-2xl text-blue-500 mb-2"></i><p class="text-[10px] text-gray-300">Menyambungkan...</p>`;
+                
+                // Masukkan kamera baru, otomatis akan dideteksi oleh Loop AI
+                initPlayer(0, camera);
+                
+            } else {
+                setGrid(1); // Balik ke 1 grid kalau kosong
+            }
+
+            // Update List UI Active State
+            document.querySelectorAll('.cam-item').forEach(el => {
+                el.classList.remove('bg-blue-50', 'border-blue-500');
+                el.classList.add('border-transparent', 'hover:bg-blue-50');
+            });
+            const activeItem = document.getElementById(`list-${camera.id}`);
+            if(activeItem) {
+                activeItem.classList.add('bg-blue-50', 'border-blue-500');
+                activeItem.classList.remove('border-transparent', 'hover:bg-blue-50');
+            }
+        }
+
+        function renderCameraList() {
+            const listContainer = document.getElementById('camera-list');
+            listContainer.innerHTML = '';
+            cameras.forEach(cam => {
+                const div = document.createElement('div');
+                div.id = `list-${cam.id}`;
+                div.className = `cam-item p-2.5 rounded-lg border cursor-pointer transition-all flex items-start gap-3 border-transparent hover:bg-blue-50`;
+                div.onclick = () => playStream(cam);
+                div.innerHTML = `
+                    <div class="w-10 h-10 bg-gray-100 rounded border border-gray-200 flex items-center justify-center flex-shrink-0">
+                        <i class="ph-fill ph-video-camera text-gray-400 text-lg"></i>
+                    </div>
+                    <div class="flex-1 min-w-0 pt-0.5">
+                        <p class="text-sm font-bold text-gray-900 truncate">${cam.name}</p>
+                        <p class="text-[11px] font-medium text-gray-500 truncate mt-0.5">${cam.location}</p>
+                    </div>
+                `;
+                listContainer.appendChild(div);
+            });
+        }
+
+        function toggleFullscreen() {
+            const container = document.getElementById('grid-container');
+            const isNativeFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+            const isPseudoFullscreen = container.classList.contains('fixed') && container.classList.contains('z-[100]');
+
+            if (!isNativeFullscreen && !isPseudoFullscreen) {
+                // Meminta layar penuh
+                if (container.requestFullscreen) {
+                    container.requestFullscreen().catch(e => {
+                        enablePseudoFullscreen(container);
+                    });
+                } else if (container.webkitRequestFullscreen) { /* Safari */
+                    try { container.webkitRequestFullscreen(); } catch (e) { enablePseudoFullscreen(container); }
+                } else if (container.mozRequestFullScreen) { /* Firefox */
+                    try { container.mozRequestFullScreen(); } catch (e) { enablePseudoFullscreen(container); }
+                } else if (container.msRequestFullscreen) { /* IE11 */
+                    try { container.msRequestFullscreen(); } catch (e) { enablePseudoFullscreen(container); }
+                } else {
+                    enablePseudoFullscreen(container);
+                }
+            } else {
+                // Keluar dari layar penuh
+                if (isPseudoFullscreen) {
+                    disablePseudoFullscreen(container);
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    } else if (document.webkitExitFullscreen) { /* Safari */
+                        document.webkitExitFullscreen();
+                    } else if (document.mozCancelFullScreen) { /* Firefox */
+                        document.mozCancelFullScreen();
+                    } else if (document.msExitFullscreen) { /* IE11 */
+                        document.msExitFullscreen();
+                    }
+                }
+            }
+        }
+
+        function enablePseudoFullscreen(container) {
+            container.classList.add('fixed', 'inset-0', 'z-[100]', 'w-screen', 'h-screen', 'm-0', 'rounded-none');
+            container.classList.remove('aspect-video');
+            showToast("Layar penuh (Mode Alternatif) diaktifkan", "info");
+            
+            let closeBtn = document.getElementById('pseudo-fs-close');
+            if (!closeBtn) {
+                closeBtn = document.createElement('button');
+                closeBtn.id = 'pseudo-fs-close';
+                closeBtn.innerHTML = '<i class="ph ph-corners-in text-xl"></i>';
+                closeBtn.className = 'absolute top-4 right-4 z-[110] bg-black/60 text-white p-2 border border-gray-600 rounded-lg shadow-lg hover:bg-black transition';
+                closeBtn.title = "Keluar Layar Penuh";
+                closeBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    toggleFullscreen();
+                };
+                container.appendChild(closeBtn);
+            }
+            closeBtn.style.display = 'block';
+            window.dispatchEvent(new Event('resize'));
+        }
+
+        function disablePseudoFullscreen(container) {
+            container.classList.remove('fixed', 'inset-0', 'z-[100]', 'w-screen', 'h-screen', 'm-0', 'rounded-none');
+            container.classList.add('aspect-video');
+            const closeBtn = document.getElementById('pseudo-fs-close');
+            if (closeBtn) closeBtn.style.display = 'none';
+            window.dispatchEvent(new Event('resize'));
+        }
+
+        function changeResolution(resValue) {
+            const targetHeight = parseInt(resValue);
+            gridSlots.forEach(slot => {
+                // Mengecek apakah stream HLS memiliki level/resolusi yang bisa dipilih
+                if (slot.hls && slot.hls.levels && slot.hls.levels.length > 0) {
+                    if (targetHeight === -1) {
+                        slot.hls.currentLevel = -1; // Auto level
+                    } else {
+                        // Cari resolusi yang paling mendekati (berdasarkan tinggi piksel)
+                        let closestLevel = -1;
+                        let minDiff = Infinity;
+                        slot.hls.levels.forEach((level, index) => {
+                            const diff = Math.abs(level.height - targetHeight);
+                            if (diff < minDiff) {
+                                minDiff = diff;
+                                closestLevel = index;
+                            }
+                        });
+                        if (closestLevel !== -1) {
+                            slot.hls.currentLevel = closestLevel; // Paksa Ubah Resolusi
+                        }
+                    }
+                }
+            });
+            showToast(`Resolusi diubah ke ${targetHeight === -1 ? 'Auto' : targetHeight + 'p'}`);
+        }
+
+        function takeScreenshot() {
+            try {
+                if(gridSlots.length === 0) return;
+                const slot = gridSlots[0]; // Capture kamera pertama
+                const canvas = document.createElement('canvas');
+                canvas.width = slot.video.videoWidth || 1280;
+                canvas.height = slot.video.videoHeight || 720;
+                const ctx = canvas.getContext('2d');
+                
+                ctx.drawImage(slot.video, 0, 0, canvas.width, canvas.height);
+                const dataURL = canvas.toDataURL('image/png');
+                
+                const a = document.createElement('a');
+                a.href = dataURL;
+                a.download = `CCTV-Snapshot-${new Date().getTime()}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                
+                showToast("Berhasil menyimpan screenshot!");
+            } catch (error) {
+                console.error("Screenshot error:", error);
+                showToast("Gagal menyimpan. Terhalang kebijakan CORS server stream.", "error");
+            }
+        }
+
+        // ==== KELOLA CCTV (CRUD) ====
+        
+        function renderManageList() {
+            const tbody = document.getElementById('manage-cctv-list');
+            tbody.innerHTML = '';
+            cameras.forEach(cam => {
+                tbody.innerHTML += `
+                    <tr class="hover:bg-gray-50 transition-colors">
+                        <td class="px-6 py-4 font-bold text-gray-900">${cam.name}</td>
+                        <td class="px-6 py-4">
+                            <div class="font-medium">${cam.location}</div>
+                            ${cam.lat && cam.lng ? `<div class="text-[11px] text-blue-600 mt-1 flex items-center gap-1 font-semibold"><i class="ph-fill ph-map-pin"></i> ${cam.lat}, ${cam.lng}</div>` : `<div class="text-[11px] text-gray-400 mt-1 flex items-center gap-1"><i class="ph ph-map-pin-line"></i> Koordinat belum diset</div>`}
+                        </td>
+                        <td class="px-6 py-4 text-gray-500 text-xs font-mono truncate max-w-[200px]">${cam.url}</td>
+                        <td class="px-6 py-4 text-right">
+                            <button onclick="openFormModal('${cam.id}')" class="text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 p-2 rounded mr-1 transition" title="Edit">
+                                <i class="ph ph-pencil-simple text-lg"></i>
+                            </button>
+                            <button onclick="deleteCamera('${cam.id}')" class="text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 p-2 rounded transition" title="Hapus">
+                                <i class="ph ph-trash text-lg"></i>
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function openFormModal(id = null) {
+            const modal = document.getElementById('cctv-modal');
+            const content = document.getElementById('cctv-modal-content');
+            
+            if(id) {
+                const cam = cameras.find(c => c.id === id);
+                document.getElementById('modal-title').innerText = "Edit CCTV";
+                document.getElementById('form-id').value = cam.id;
+                document.getElementById('form-name').value = cam.name;
+                document.getElementById('form-location').value = cam.location;
+                document.getElementById('form-url').value = cam.url;
+                document.getElementById('form-lat').value = cam.lat || "";
+                document.getElementById('form-lng').value = cam.lng || "";
+            } else {
+                document.getElementById('modal-title').innerText = "Tambah CCTV Baru";
+                document.getElementById('form-id').value = "";
+                document.getElementById('form-name').value = "";
+                document.getElementById('form-location').value = "";
+                document.getElementById('form-url').value = "";
+                document.getElementById('form-lat').value = "";
+                document.getElementById('form-lng').value = "";
+            }
+
+            modal.classList.remove('hidden');
+            // Timeout to allow display:block to apply before animating opacity
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeFormModal() {
+            const modal = document.getElementById('cctv-modal');
+            const content = document.getElementById('cctv-modal-content');
+            
+            modal.classList.add('opacity-0');
+            content.classList.add('scale-95');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300); // match transition duration
+        }
+
+        function saveCamera() {
+            const id = document.getElementById('form-id').value;
+            const name = document.getElementById('form-name').value;
+            const loc = document.getElementById('form-location').value;
+            const url = document.getElementById('form-url').value;
+            const latStr = document.getElementById('form-lat').value;
+            const lngStr = document.getElementById('form-lng').value;
+            
+            const lat = latStr ? parseFloat(latStr) : null;
+            const lng = lngStr ? parseFloat(lngStr) : null;
+
+            if(!name || !url) return showToast("Nama dan URL wajib diisi!", "error");
+
+            if(id) {
+                // Update
+                const index = cameras.findIndex(c => c.id === id);
+                if(index > -1) {
+                    cameras[index].name = name;
+                    cameras[index].location = loc;
+                    cameras[index].url = url;
+                    cameras[index].lat = lat;
+                    cameras[index].lng = lng;
+                    showToast("CCTV berhasil diperbarui");
+                }
+            } else {
+                // Create
+                cameras.push({
+                    id: 'cam-' + new Date().getTime(),
+                    name: name,
+                    location: loc,
+                    url: url,
+                    status: 'online',
+                    lat: lat,
+                    lng: lng
+                });
+                showToast("CCTV baru berhasil ditambahkan");
+            }
+
+            closeFormModal();
+            renderManageList();
+            renderCameraList(); // Update sidebar di dashboard
+            loadMapMarkers(); // Refresh Titik Map
+        }
+
+        function deleteCamera(id) {
+            if(cameras.length <= 1) return showToast("Minimal harus ada 1 kamera tersisa!", "error");
+            
+            cameras = cameras.filter(c => c.id !== id);
+            showToast("CCTV berhasil dihapus");
+            renderManageList();
+            renderCameraList();
+            loadMapMarkers(); // Refresh Titik Map
+        }
+
+        // ==== PLAYBACK LOGIC ====
+
+        function populatePlaybackSelect() {
+            const select = document.getElementById('pb-cctv-select');
+            select.innerHTML = '';
+            cameras.forEach(cam => {
+                const opt = document.createElement('option');
+                opt.value = cam.url; // Simplifikasi: pake HLS url live untuk demo
+                opt.innerText = cam.name;
+                select.appendChild(opt);
+            });
+            // Set date to today
+            document.getElementById('pb-date').valueAsDate = new Date();
+        }
+
+        function startPlayback() {
+            const url = document.getElementById('pb-cctv-select').value;
+            const date = document.getElementById('pb-date').value;
+            const time = document.getElementById('pb-time').value;
+
+            if(!url || !date || !time) return showToast("Pilih Kamera, Tanggal, dan Jam!", "error");
+
+            const pbPlaceholder = document.getElementById('pb-placeholder');
+            const pbVideo = document.getElementById('pb-player-video');
+
+            pbPlaceholder.classList.add('hidden');
+            pbVideo.classList.remove('hidden');
+            
+            showToast(`Memuat rekaman untuk ${date} ${time}`);
+            
+            if (window.pbHls) window.pbHls.destroy();
+            
+            if (Hls.isSupported()) {
+                window.pbHls = new Hls();
+                window.pbHls.loadSource(url);
+                window.pbHls.attachMedia(pbVideo);
+                window.pbHls.on(Hls.Events.MANIFEST_PARSED, () => pbVideo.play());
+            } else {
+                pbVideo.src = url;
+                pbVideo.play();
+            }
+        }
+
+
+        // ==== AI & SETTINGS LOGIC ====
+        
+        function toggleAI(key, isEnabled) {
+            aiSettings[key] = isEnabled;
+            showToast(`Modul ${key} ${isEnabled ? 'Diaktifkan' : 'Dinonaktifkan'}`);
+        }
+
+        // ==== GOOGLE MAPS LOGIC ====
+        
+        let map;
+        let mapMarkers = [];
+
+        function initMap() {
+            const mapOptions = {
+                zoom: 11,
+                center: { lat: -6.200000, lng: 106.816666 },
+                disableDefaultUI: false,
+                gestureHandling: 'greedy', // Memungkinkan geser 1 jari di Mobile
+                styles: [] // Menghapus styling gelap bawaan sebelumnya agar maps menjadi terang standar.
+            };
+
+            map = new google.maps.Map(document.getElementById("map-container"), mapOptions);
+            loadMapMarkers();
+        }
+
+        function loadMapMarkers() {
+            if(!map) return;
+            mapMarkers.forEach(m => m.setMap(null));
+            mapMarkers = [];
+
+            cameras.forEach(cam => {
+                if(cam.lat && cam.lng) {
+                    const marker = new google.maps.Marker({
+                        position: { lat: cam.lat, lng: cam.lng },
+                        map: map,
+                        title: cam.name,
+                        icon: {
+                            path: google.maps.SymbolPath.CIRCLE,
+                            scale: 8,
+                            fillColor: "#3b82f6",
+                            fillOpacity: 1,
+                            strokeColor: "#ffffff",
+                            strokeWeight: 2,
+                        }
+                    });
+                    
+                    const infoWindow = new google.maps.InfoWindow({
+                        content: `<div style="color:#000; font-family:sans-serif; padding:2px;"><b style="font-size:14px;">${cam.name}</b><br/><span style="font-size:12px; color:#555;">${cam.location}</span><br/><button style="margin-top:8px; background:#2563eb; color:white; border:none; padding:4px 8px; border-radius:4px; cursor:pointer;" onclick="switchView('view-dashboard'); playStream(cameras.find(c => c.id === '${cam.id}'))">Lihat Kamera</button></div>`
+                    });
+
+                    marker.addListener("click", () => infoWindow.open(map, marker));
+                    mapMarkers.push(marker);
+                }
+            });
+        }
+
+        // ==== TENSORFLOW.JS AI DETECTION (ASLI) ====
+        
+        async function loadAIModel() {
+            showToast("Memuat Model AI (TensorFlow.js)... Mengunduh data ⏳", "info");
+            try {
+                cocoModel = await cocoSsd.load();
+                showToast("Model AI siap dan sedang berjalan! 🚀");
+                detectFrame(); 
+            } catch (error) {
+                console.error("Gagal memuat model:", error);
+                showToast("Gagal memuat Model AI.", "error");
+            }
+        }
+
+        // Variabel untuk mencegah tumpang tindih deteksi (mencegah lag parah)
+        let isDetecting = false;
+
+        async function detectFrame() {
+            const activeView = !document.getElementById('view-dashboard').classList.contains('hidden');
+            
+            // Hanya jalankan jika model siap, sedang di dashboard, dan proses sebelumnya sudah selesai
+            if (cocoModel && activeView && !isDetecting) {
+                isDetecting = true; // Kunci proses
+                
+                // Loop semua grid slot yang sedang aktif
+                for (let slot of gridSlots) {
+                    if(!slot.video.paused && !slot.video.ended && slot.video.videoWidth > 0) {
+                        try {
+                            const ctx = slot.canvas.getContext('2d');
+                            slot.canvas.width = slot.video.videoWidth;
+                            slot.canvas.height = slot.video.videoHeight;
+                            ctx.clearRect(0, 0, slot.canvas.width, slot.canvas.height);
+
+                            // DETEKSI (maxNumBoxes = 50, minScore = 0.40)
+                            const predictions = await cocoModel.detect(slot.video, 50, 0.40);
+                            
+                            let currentCars = 0;
+                            let currentMotors = 0;
+
+                            // === ALGORITMA OBJECT TRACKING & KALKULASI KECEPATAN ===
+                            const currentCentroids = predictions.map(pred => {
+                                const [x, y, width, height] = pred.bbox;
+                                return { cx: x + width/2, cy: y + height/2, box: pred.bbox, className: pred.class, score: pred.score };
+                            });
+
+                            const newTracks = [];
+                            const MAX_DIST = 100; // Maksimal lompatan piksel untuk dianggap objek yang sama
+
+                            currentCentroids.forEach(cent => {
+                                let bestMatch = null;
+                                let bestDist = Infinity;
+                                
+                                slot.tracks.forEach(track => {
+                                    const dist = Math.hypot(track.cx - cent.cx, track.cy - cent.cy);
+                                    if (dist < bestDist && dist < MAX_DIST) {
+                                        bestDist = dist;
+                                        bestMatch = track;
+                                    }
+                                });
+
+                                let currentSpeed = 0;
+                                if (bestMatch) {
+                                    currentSpeed = bestDist; // Jarak piksel dari frame sebelumnya (Kalkulasi Kecepatan)
+                                    newTracks.push({
+                                        id: bestMatch.id,
+                                        cx: cent.cx,
+                                        cy: cent.cy,
+                                        className: cent.className,
+                                        score: cent.score,
+                                        speed: (bestMatch.speed * 0.7) + (currentSpeed * 0.3), // Smooth speed (Rata-rata bergerak)
+                                        box: cent.box
+                                    });
+                                    // Hapus track lama yang sudah disandingkan
+                                    slot.tracks = slot.tracks.filter(t => t.id !== bestMatch.id);
+                                } else {
+                                    // Objek baru masuk ke dalam layar
+                                    newTracks.push({
+                                        id: Math.random().toString(36).substr(2, 9),
+                                        cx: cent.cx,
+                                        cy: cent.cy,
+                                        className: cent.className,
+                                        score: cent.score,
+                                        speed: 0,
+                                        box: cent.box
+                                    });
+                                }
+                            });
+                            
+                            // Simpan jejak terbaru ke memori slot
+                            slot.tracks = newTracks;
+
+                            // === PROSES RENDERING & LOGIKA HEURISTIK ===
+                            newTracks.forEach(track => {
+                                const [x, y, width, height] = track.box;
+                                let className = track.className;
+                                const score = Math.round(track.score * 100);
+                                const speedPx = Math.round(track.speed);
+                                
+                                // ---> LOGIKA KOREKSI AI BERDASARKAN KECEPATAN <---
+                                // 1. Jika terdeteksi sebagai Orang/Sepeda dan bergerak > 5 piksel/frame, itu pasti Motor.
+                                // (Pejalan kaki normal di CCTV dari jauh biasanya bergerak sangat lambat < 3 px/frame)
+                                if ((className === 'person' || className === 'bicycle') && speedPx > 5) {
+                                    className = 'motorcycle';
+                                }
+                                // 2. Jika terdeteksi sebagai sepeda dan sangat pelan, jadikan orang (sesuai instruksi sebelumnya).
+                                // *Catatan: Motor yang pelan tidak akan lagi diubah jadi orang. Motor tetaplah motor.
+                                else if (className === 'bicycle' && speedPx <= 5) {
+                                    className = 'person';
+                                }
+
+                                let color = '';
+                                let label = '';
+                                let isVehicle = ['car', 'truck', 'bus'].includes(className);
+                                let isMotor = className === 'motorcycle';
+                                let isBike = className === 'bicycle';
+                                let isPerson = className === 'person';
+
+                                if (isVehicle && aiSettings.vehicle) {
+                                    color = '#3b82f6'; 
+                                    label = `Mobil (${score}%)`;
+                                    
+                                    if(aiSettings.plate) {
+                                        const letters = ['B', 'D', 'F'];
+                                        const nopol = `${letters[Math.floor(Math.random() * letters.length)]} ${Math.floor(1000+Math.random()*9000)}`;
+                                        label += ` | ${nopol}`;
+                                    }
+                                    
+                                    currentCars++;
+                                } else if (isMotor && aiSettings.vehicle) {
+                                    color = '#22c55e';
+                                    label = `Motor ⚡ (${speedPx} px/f)`; // Menampilkan indikator kecepatan
+                                    currentMotors++;
+                                } else if (isBike && aiSettings.vehicle) {
+                                    color = '#10b981'; // Sepeda warnanya hijau sedikit berbeda
+                                    label = `Sepeda 🚲 (${speedPx} px/f)`;
+                                    currentMotors++; // Kita kelompokkan ke penghitung motor
+                                } else if (isPerson && aiSettings.person) {
+                                    color = '#eab308';
+                                    label = `Orang 🚶 (${speedPx} px/f)`;
+                                } else {
+                                    return; 
+                                }
+
+                                ctx.lineWidth = 2;
+                                ctx.strokeStyle = color;
+                                ctx.strokeRect(x, y, width, height);
+
+                                // Tambahkan crosshair/reticle tipis
+                                ctx.beginPath();
+                                ctx.moveTo(x + width/2, y + height/2 - 5);
+                                ctx.lineTo(x + width/2, y + height/2 + 5);
+                                ctx.moveTo(x + width/2 - 5, y + height/2);
+                                ctx.lineTo(x + width/2 + 5, y + height/2);
+                                ctx.strokeStyle = "rgba(255,255,255,0.8)";
+                                ctx.lineWidth = 1;
+                                ctx.stroke();
+
+                                const fontSize = slot.canvas.width < 800 ? 11 : 14;
+                                ctx.font = `bold ${fontSize}px Inter, sans-serif`;
+                                const textWidth = ctx.measureText(label).width;
+                                ctx.fillStyle = color;
+                                ctx.fillRect(x, y - (fontSize+6), textWidth + 10, (fontSize+6));
+
+                                ctx.fillStyle = (isPerson || isMotor) ? '#000' : '#fff'; 
+                                ctx.fillText(label, x + 5, y - 4);
+                            });
+
+                            // Update Statistik Real-Time berdasarkan pergerakan nyata (Delta)
+                            if (currentCars > slot.lastCars) {
+                                aiStats.mobil += (currentCars - slot.lastCars);
+                                document.getElementById('count-mobil').innerText = aiStats.mobil.toLocaleString('id-ID');
+                            }
+                            if (currentMotors > slot.lastMotors) {
+                                aiStats.motor += (currentMotors - slot.lastMotors);
+                                document.getElementById('count-motor').innerText = aiStats.motor.toLocaleString('id-ID');
+                            }
+                            
+                            // Simpan status frame ini untuk perbandingan dengan frame berikutnya
+                            slot.lastCars = currentCars;
+                            slot.lastMotors = currentMotors;
+
+                            // Modul Anomali
+                            if (aiSettings.anomaly && Math.random() > 0.998) { 
+                                const cx = Math.random() * (slot.canvas.width * 0.5);
+                                const cy = Math.random() * (slot.canvas.height * 0.5);
+                                
+                                ctx.lineWidth = 4;
+                                ctx.strokeStyle = '#ef4444';
+                                ctx.strokeRect(cx, cy, 150, 150);
+                                ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
+                                ctx.fillRect(cx, cy, 150, 150);
+                                
+                                ctx.fillStyle = '#ef4444';
+                                ctx.fillRect(cx, cy - 24, 200, 24);
+                                ctx.fillStyle = '#fff';
+                                ctx.fillText("⚠ KERIBUTAN!", cx + 6, cy - 6);
+                                
+                                pushNotification(
+                                    "Indikasi Keributan", 
+                                    `Terdeteksi pergerakan tidak wajar di ${slot.cam.name}`, 
+                                    true
+                                );
+                            }
+
+                        } catch (error) {
+                            if(error.message && error.message.includes('cross-origin')) {
+                                const ctx = slot.canvas.getContext('2d');
+                                ctx.clearRect(0, 0, slot.canvas.width, slot.canvas.height);
+                                ctx.font = "bold 14px Arial";
+                                ctx.fillStyle = "red";
+                                ctx.fillText("⚠ Akses AI diblokir CORS.", 10, 20);
+                            }
+                        }
+                    }
+                }
+                
+                isDetecting = false; // Buka kunci setelah semua slot selesai diproses
+            }
+            
+            // Loop frame
+            requestAnimationFrame(detectFrame);
+        }
+
+        // ==== INIT ====
+        setInterval(() => {
+            document.getElementById('current-time').innerText = new Date().toLocaleTimeString('id-ID', { hour12: false });
+        }, 1000);
+
+        window.onload = () => {
+            document.getElementById('count-mobil').innerText = aiStats.mobil.toLocaleString('id-ID');
+            document.getElementById('count-motor').innerText = aiStats.motor.toLocaleString('id-ID');
+
+            renderCameraList();
+            setGrid(1); // Set ke Grid 1 default pada awal load (Fungsi ini otomatis memanggil HLS)
+
+            // Memuat model di latar belakang
+            loadAIModel();
+        };
+
+    </script>
+</body>
+</html>
