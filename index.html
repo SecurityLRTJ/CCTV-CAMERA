@@ -172,11 +172,15 @@
             <div id="view-dashboard" class="view-section absolute inset-0 overflow-y-auto p-4 lg:p-8 flex flex-col lg:flex-row gap-6">
                 <!-- Main Player Area -->
                 <div class="flex-1 flex flex-col min-w-0">
-                    <div class="flex justify-between items-end mb-4">
-                        <div>
+                    <div class="flex justify-between items-end mb-4 flex-wrap gap-4">
+                        <div class="flex items-center gap-3">
                             <h2 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
                                 <span id="active-cam-name">CCTV Live Publik</span>
                             </h2>
+                            <!-- Menambahkan Droplist Disini -->
+                            <select id="quick-cam-select" onchange="playSelectedCamera(this.value)" class="bg-white border border-gray-300 text-gray-700 text-sm font-semibold rounded-lg px-2 py-1 focus:outline-none focus:border-blue-500 shadow-sm cursor-pointer max-w-[140px] sm:max-w-xs truncate">
+                                <option value="">-- Ganti Kamera --</option>
+                            </select>
                         </div>
                         <div class="flex gap-2">
                             <!-- Layout Grid Controls -->
@@ -225,7 +229,15 @@
                 <div class="w-full lg:w-80 flex flex-col shrink-0">
                     <h3 class="text-sm font-bold text-gray-900 mb-2">Pilihan CCTV Kamera</h3>
                     <div class="flex-1 bg-white rounded-xl border border-gray-200 overflow-hidden flex flex-col h-[500px] lg:h-auto shadow-sm">
-                        <div class="flex-1 overflow-y-auto p-2 space-y-1" id="camera-list">
+                        <!-- Fitur Pencarian CCTV -->
+                        <div class="p-2 border-b border-gray-200 bg-gray-50/50 shrink-0">
+                            <div class="relative">
+                                <i class="ph ph-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                <input type="text" id="cam-search-input" onkeyup="filterCameraList()" placeholder="Cari nama atau lokasi CCTV..." class="w-full bg-white border border-gray-300 text-sm rounded-md pl-9 pr-3 py-2 focus:outline-none focus:border-blue-500 transition-all text-gray-900 placeholder-gray-500 shadow-sm">
+                            </div>
+                        </div>
+                        
+                        <div class="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar" id="camera-list">
                             <!-- List di-generate via JavaScript -->
                         </div>
                     </div>
@@ -456,7 +468,51 @@
                 status: 'online',
                 lat: -6.98432, 
                 lng: 110.42213
-            }
+            },
+            { id: 'cam-03', name: 'CCTV Senayan Patung Obor', location: 'DKI Jakarta', url: 'https://jakcctv.jakarta.go.id/Senayan-001-705084_2/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-04', name: 'CCTV Gd The City Tower', location: 'DKI Jakarta', url: 'https://jakcctv.jakarta.go.id/Kebon-Melati-010-700332_2/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-05', name: 'CCTV Jl. Senayan raya', location: 'DKI Jakarta', url: 'https://jakcctv.jakarta.go.id/Senayan-018-705979_2/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-06', name: 'CCTV Jl. Nurdin Raya Komplek Grogol 2', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/501968-Simpang-Jl-Nurdin-Raya-C01_CCTV-02/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-07', name: 'CCTV Jl. Jatibaru Raya Ps Tanah Abang', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/503675_JKP_BAKESBANGPOL_JL.-JATI-BARU-RAYA-C02_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-08', name: 'CCTV Jl. Cideng Timur 2', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/503343_JKP_DBM_JPO-JL.-CIDENG-TIMUR-C02_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-09', name: 'CCTV Jl. KH Mas Tanah Abang', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/502041_JKP_POLDA_JL.-KH.-MAS-MANSYUR-C02_CCTV-02/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-10', name: 'CCTV Jl. Cideng Timur', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/503343_JKP_DBM_JPO-JL.-CIDENG-TIMUR-C02_CCTV-02/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-11', name: 'CCTV Jl. Nurdin Raya Komplek Grogol', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/501968-Simpang-Jl-Nurdin-Raya-C01_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-12', name: 'CCTV Jl. Letjen Sparman (Simpang 6)', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/502540_JKB_SATPOL-PP_SIMPANG-JL.-LETJEN.-S.-PARMAN-C02_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-13', name: 'CCTV Jl. Letjen Sparman (Simpang 5)', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/502540_JKB_SATPOL-PP_SIMPANG-JL.-LETJEN.-S.-PARMAN-C02_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-14', name: 'CCTV Jl. Letjen Sparman (Lampu Merah)', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/502540_JKB_SATPOL-PP_SIMPANG-JL.-LETJEN.-S.-PARMAN-C02_CCTV-02/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-15', name: 'CCTV Jl. Letjen Sparman (Simpang 4 - A)', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/501862_JKB_DISHUB_JL.-LETJEN.-S.-PARMAN-C01_CCTV-03/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-16', name: 'CCTV Jl. Letjen Sparman (PosPol)', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/501862_JKB_DISHUB_JL.-LETJEN.-S.-PARMAN-C01_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-17', name: 'CCTV Stasiun Mangarai 2', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/501493_JKP_SATPOLPP_PASAR-TANAH-ABANG-C02_CCTV-02/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-18', name: 'CCTV UOB Plaza MH Thamrin Belokan 2', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/504866_JKP_POLRI_UOB-PLAZA-C01_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-19', name: 'CCTV UOB Plaza MH Thamrin Belokan', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/504866_JKP_POLRI_UOB-PLAZA-C01_CCTV-03/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-20', name: 'CCTV UOB Plaza MH Thamrin', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/504866_JKP_POLRI_UOB-PLAZA-C01_CCTV-02/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-21', name: 'CCTV Taman Literasi Blok M', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/501478_JKS_SATPOLPP_TAMAN-LITERASI-C01_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-22', name: 'CCTV Stasiun Mangarai', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/501594_JKS_DISGULKARMAT_JL.-MANGGARAI-UTARA-2-C01_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-23', name: 'CCTV Bundaran HI 7', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/502493_JKP_SATPOL-PP_SIMPANG-JL.-MH.-THAMRIN-C09_CCTV-02/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-24', name: 'CCTV Bundaran HI 6 (PosPol)', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/502492_JKP_SATPOL-PP_SIMPANG-JL.-MH.-THAMRIN-C08_CCTV-02/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-25', name: 'CCTV Bundaran HI 5 (Imam Bonjol)', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/501941_JKP_SATPOLPP_JL.-MH.-THAMRIN-C02_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-26', name: 'CCTV Bundaran HI 4', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/501941_JKP_SATPOLPP_JL.-MH.-THAMRIN-C02_CCTV-02/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-27', name: 'CCTV Bundaran HI 3 Thamrin 9', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/501844_JKP_DISHUB_JL.-MH.-THAMRIN-C01_CCTV-02/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-28', name: 'CCTV Bundaran HI 2', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/502493_JKP_SATPOL-PP_SIMPANG-JL.-MH.-THAMRIN-C09_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-29', name: 'CCTV Flayover Senayan', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/503536_JKP_DBM_FLYOVER-LADOKGI-C01_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-30', name: 'CCTV Jl. Tentara Pelajar (Simpang)', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/503301_JKP_POLDA_JL.-TENTARA-PELAJAR-C04_CCTV-02/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-31', name: 'CCTV Jl. Gatot Subroto Flayover Senayan', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/503303_JKP_POLDA_JL.-JEND.-GATOT-SUBROTO-C14_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-32', name: 'CCTV Tentara Pelajar (Palmerah)', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/503301_JKP_POLDA_JL.-TENTARA-PELAJAR-C04_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-33', name: 'CCTV Flayover Benhil Ke Senayan', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/503303_JKP_POLDA_JL.-JEND.-GATOT-SUBROTO-C14_CCTV-02/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-34', name: 'CCTV Flayover Senayan Benhil', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/503536_JKP_DBM_FLYOVER-LADOKGI-C01_CCTV-02/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-35', name: 'CCTV Jl. Gerbang Pemuda (Samping Gedung MPR)', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/502160_JKP_POLDA_JL.-GERBANG-PEMUDA-C03_CCTV-02/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-36', name: 'CCTV Jl. Gatot Subroto 2', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/502045_JKP_POLDA_JPO-JL.-GATOT-SUBROTO-7_CCTV-02/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-37', name: 'CCTV Jl. Gerbang Pemuda (Simpang Playover)', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/502506_JKP_SATPOL-PP_JL.-GERBANG-PEMUDA-C04_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-38', name: 'CCTV Jl. Gatot Subroto Halte', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/502045_JKP_POLDA_JPO-JL.-GATOT-SUBROTO-7_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-39', name: 'CCTV Jl. Gerbang Pemuda (Pintu GBK Senayan)', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/502160_JKP_POLDA_JL.-GERBANG-PEMUDA-C03_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-40', name: 'CCTV Jl. Gatot Subroto', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/503300_JKP_POLDA_JL.-JEND.-GATOT-SUBROTO-C13_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-41', name: 'CCTV Jl. Letjen Sparman (Simpang 4 - B)', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/502645_JKB_SATPOL-PP_SIMPANG-JL.-LETJEN.-S.-PARMAN-C08_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-42', name: 'CCTV Jl. Gatot Subroto (Depan Gedung DPR RI)', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/502507_JKP_SATPOL-PP_JL.-JEND.-GATOT-SUBROTO-C11_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-43', name: 'CCTV Jl. Gatot Subroto (Sebrang Gedung DPR RI)', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/503300_JKP_POLDA_JL.-JEND.-GATOT-SUBROTO-C13_CCTV-02/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-44', name: 'CCTV Jl. Letjen Sparman (Simpang 3)', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/502645_JKB_SATPOL-PP_SIMPANG-JL.-LETJEN.-S.-PARMAN-C08_CCTV-02/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-45', name: 'CCTV Jl. Letjen Sparman (Simpang 2)', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/502535_JKB_SATPOL-PP_SIMPANG-JL.-LETJEN.-S.-PARMAN-C07_CCTV-02/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null },
+            { id: 'cam-46', name: 'CCTV Jl. Letjen Sparman (Simpang 1)', location: 'DKI Jakarta', url: 'https://dki-jkt.balitower.co.id:7028/502535_JKB_SATPOL-PP_SIMPANG-JL.-LETJEN.-S.-PARMAN-C07_CCTV-01/tracks-v1/index.fmp4.m3u8', status: 'online', lat: null, lng: null }
         ];
 
         let aiSettings = {
@@ -737,6 +793,10 @@
                 const activeCamName = document.getElementById(`active-cam-name`);
                 if (activeCamName) activeCamName.innerText = camera.name;
                 
+                // Sinkronisasi Droplist saat kamera diganti
+                const quickSelect = document.getElementById('quick-cam-select');
+                if (quickSelect) quickSelect.value = camera.id;
+                
                 const overlay0 = document.getElementById(`overlay-0`);
                 if (overlay0) {
                     overlay0.classList.remove('hidden');
@@ -764,7 +824,11 @@
 
         function renderCameraList() {
             const listContainer = document.getElementById('camera-list');
+            const quickSelect = document.getElementById('quick-cam-select');
+            
             listContainer.innerHTML = '';
+            if (quickSelect) quickSelect.innerHTML = '<option value="">-- Ganti Kamera --</option>';
+            
             cameras.forEach(cam => {
                 const div = document.createElement('div');
                 div.id = `list-${cam.id}`;
@@ -775,12 +839,46 @@
                         <i class="ph-fill ph-video-camera text-gray-400 text-lg"></i>
                     </div>
                     <div class="flex-1 min-w-0 pt-0.5">
-                        <p class="text-sm font-bold text-gray-900 truncate">${cam.name}</p>
-                        <p class="text-[11px] font-medium text-gray-500 truncate mt-0.5">${cam.location}</p>
+                        <p class="text-sm font-bold text-gray-900 truncate cam-name">${cam.name}</p>
+                        <p class="text-[11px] font-medium text-gray-500 truncate mt-0.5 cam-loc">${cam.location}</p>
                     </div>
                 `;
                 listContainer.appendChild(div);
+                
+                // Masukkan data CCTV ke dalam Droplist atas
+                if (quickSelect) {
+                    const opt = document.createElement('option');
+                    opt.value = cam.id;
+                    opt.innerText = cam.name;
+                    quickSelect.appendChild(opt);
+                }
             });
+        }
+
+        // Fungsi baru untuk eksekusi Droplist
+        function playSelectedCamera(camId) {
+            if(!camId) return;
+            const cam = cameras.find(c => c.id === camId);
+            if(cam) playStream(cam);
+        }
+
+        // Fungsi Filter/Pencarian List CCTV
+        function filterCameraList() {
+            const input = document.getElementById('cam-search-input');
+            const filter = input.value.toLowerCase();
+            const listContainer = document.getElementById('camera-list');
+            const items = listContainer.getElementsByClassName('cam-item');
+            
+            for (let i = 0; i < items.length; i++) {
+                const name = items[i].querySelector('.cam-name').textContent || items[i].querySelector('.cam-name').innerText;
+                const loc = items[i].querySelector('.cam-loc').textContent || items[i].querySelector('.cam-loc').innerText;
+                
+                if (name.toLowerCase().indexOf(filter) > -1 || loc.toLowerCase().indexOf(filter) > -1) {
+                    items[i].style.display = "";
+                } else {
+                    items[i].style.display = "none";
+                }
+            }
         }
 
         function toggleFullscreen() {
